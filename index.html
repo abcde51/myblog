@@ -46,30 +46,15 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_3ii6Dp-uKyvr9MS61U2F1g_lrx8oz3C';
     const STORAGE_BUCKET = 'blog-files';
 
-    // 客户端挂载在 window 上，绝不使用 supabase 变量名
-    if (!window.__blogSupabase) {
-      window.__blogSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
+    window.__blogSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 设置 marked
     if (window.marked) {
       marked.setOptions({ breaks: true, gfm: true });
     }
 
     let currentUser = null;
     let userProfile = null;
-
-    // 带超时的 fetch 封装（用于 Supabase 内部不超时的情况）
-    function withTimeout(promise, ms = 8000, msg = '请求超时') {
-      return Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
-      ]);
-    }
-
-    function log(msg, data) {
-      console.log(`[Blog] ${msg}`, data || '');
-    }
+    let appInitialized = false;   // 防止重复渲染
 
     function escapeHtml(text) {
       const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' };
@@ -103,37 +88,45 @@
     }
     function isAdmin() { return userProfile && userProfile.role === 'admin'; }
 
-    async function loadSession() {
-      log('开始加载用户会话...');
-      const { data:{ session }, error } = await withTimeout(
-        window.__blogSupabase.auth.getSession(),
-        8000,
-        '获取用户会话超时（请检查网络或Supabase项目状态）'
-      );
-      if (error) throw error;
+    // ========== 认证状态监听（完全替代 getSession） ==========
+    window.__blogSupabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Blog] 认证事件:', event, session?.user?.email);
       currentUser = session?.user ?? null;
-      log('会话加载完成', { currentUser: currentUser?.email });
+
       if (currentUser) {
-        const { data: profile } = await withTimeout(
-          window.__blogSupabase.from('profiles').select('*').eq('id', currentUser.id).single(),
-          8000,
-          '获取用户资料超时'
-        );
+        const { data: profile, error } = await window.__blogSupabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+        if (error && !error.message.includes('contains 0 rows')) {
+          console.error('获取 profile 失败:', error);
+        }
         userProfile = profile || null;
-        log('用户角色:', userProfile?.role);
       } else {
         userProfile = null;
       }
-    }
 
-    window.__blogSupabase.auth.onAuthStateChange(async (event, session) => {
-      log('认证状态变化:', event);
-      currentUser = session?.user ?? null;
-      if (currentUser) {
-        const { data: profile } = await window.__blogSupabase.from('profiles').select('*').eq('id', currentUser.id).single();
-        userProfile = profile;
-      } else userProfile = null;
-      renderApp();
+      // 仅在首次完成认证初始化后渲染页面
+      if (!appInitialized) {
+        appInitialized = true;
+        renderApp();
+        setTimeout(() => {
+          const route = getRoute();
+          if (route.page === 'login') setupLoginListener();
+          if (route.page === 'register') setupRegisterListener();
+          if (route.page === 'adminNewPost') setupNewPost();
+        }, 50);
+      } else {
+        // 后续状态变化也重新渲染（登录、登出等）
+        renderApp();
+        setTimeout(() => {
+          const route = getRoute();
+          if (route.page === 'login') setupLoginListener();
+          if (route.page === 'register') setupRegisterListener();
+          if (route.page === 'adminNewPost') setupNewPost();
+        }, 50);
+      }
     });
 
     function renderNav() {
@@ -152,11 +145,10 @@
     }
 
     async function renderApp() {
-      log('开始渲染页面...');
+      console.log('[Blog] 渲染页面...');
       renderNav();
       const app = document.getElementById('app');
       const route = getRoute();
-      log('当前路由:', route);
       try {
         switch (route.page) {
           case 'home': app.innerHTML = await renderHome(); break;
@@ -166,7 +158,7 @@
           case 'adminNewPost': if (!isAdmin()) { navigate({ page:'home' }); return; } app.innerHTML = renderNewPost(); break;
           default: app.innerHTML = '<p>页面未找到</p>';
         }
-        log('页面渲染完成');
+        console.log('[Blog] 页面渲染完成');
       } catch (err) {
         console.error(err);
         app.innerHTML = `<p class="error-msg">出错了：${escapeHtml(err.message)}</p>`;
@@ -174,12 +166,10 @@
     }
 
     async function renderHome() {
-      log('加载文章列表...');
-      const { data: posts, error } = await withTimeout(
-        window.__blogSupabase.from('posts').select('id,title,slug,created_at').order('created_at', { ascending: false }),
-        8000,
-        '加载文章列表超时'
-      );
+      const { data: posts, error } = await window.__blogSupabase
+        .from('posts')
+        .select('id,title,slug,created_at')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       if (!posts || posts.length===0) return '<p>暂无文章。</p>';
       return posts.map(p => `
@@ -190,12 +180,11 @@
     }
 
     async function renderPost(slug) {
-      log('加载文章:', slug);
-      const { data: post, error } = await withTimeout(
-        window.__blogSupabase.from('posts').select('*').eq('slug', slug).single(),
-        8000,
-        '加载文章超时'
-      );
+      const { data: post, error } = await window.__blogSupabase
+        .from('posts')
+        .select('*')
+        .eq('slug', slug)
+        .single();
       if (error || !post) return '<p class="error-msg">文章不存在。</p>';
       let html = `
         <div class="post-content">
@@ -220,7 +209,11 @@
     }
 
     async function loadComments(postId) {
-      const { data: comments, error } = await window.__blogSupabase.from('comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
+      const { data: comments, error } = await window.__blogSupabase
+        .from('comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
       const list = document.getElementById('commentsList');
       if (!list) return;
       if (error || !comments.length) { list.innerHTML = '<p>暂无评论。</p>'; return; }
@@ -245,7 +238,6 @@
       });
     }
 
-    // 登录页
     function renderLogin() {
       return `
         <h2>登录</h2>
@@ -272,7 +264,6 @@
       });
     }
 
-    // 注册页
     function renderRegister() {
       return `
         <h2>注册</h2>
@@ -323,7 +314,6 @@
       }
     }
 
-    // 管理员发布页
     function renderNewPost() {
       return `
         <h2>发布新文章</h2>
@@ -396,8 +386,9 @@
       });
     }
 
-    // 路由与事件绑定
+    // 路由变化监听
     window.addEventListener('hashchange', () => {
+      if (!appInitialized) return; // 初始化未完成前忽略
       renderApp();
       setTimeout(() => {
         const route = getRoute();
@@ -406,23 +397,6 @@
         if (route.page === 'adminNewPost') setupNewPost();
       }, 50);
     });
-
-    // 首次加载
-    (async () => {
-      try {
-        await loadSession();
-        await renderApp();
-        setTimeout(() => {
-          const route = getRoute();
-          if (route.page === 'login') setupLoginListener();
-          if (route.page === 'register') setupRegisterListener();
-          if (route.page === 'adminNewPost') setupNewPost();
-        }, 50);
-      } catch (e) {
-        console.error('启动失败:', e);
-        document.getElementById('app').innerHTML = `<p class="error-msg">启动失败：${escapeHtml(e.message)}</p>`;
-      }
-    })();
   </script>
 </body>
 </html>
