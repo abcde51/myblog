@@ -41,10 +41,10 @@
   <div class="container" id="app"><div class="loading">加载中...</div></div>
 
   <script>
-    // ================= 配置 =================
-const SUPABASE_URL = 'https://dtazdqalzupflxttqxtb.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_l6333aJzmowckrgFSVocGw_vb9qZLkg';
-const STORAGE_BUCKET = 'blog-files';
+    // ================= 你的新 Supabase 配置 =================
+    const SUPABASE_URL = 'https://dtazdqalzupflxttqxtb.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_l6333aJzmowckrgFSVocGw_vb9qZLkg';
+    const STORAGE_BUCKET = 'blog-files';
 
     window.__blogSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -54,7 +54,7 @@ const STORAGE_BUCKET = 'blog-files';
 
     let currentUser = null;
     let userProfile = null;
-    let appInitialized = false;   // 防止重复渲染
+    let appInitialized = false;
 
     function escapeHtml(text) {
       const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' };
@@ -88,29 +88,48 @@ const STORAGE_BUCKET = 'blog-files';
     }
     function isAdmin() { return userProfile && userProfile.role === 'admin'; }
 
-    // ========== 认证状态监听（完全替代 getSession） ==========
+    // 获取用户资料的异步函数（不阻塞主流程）
+    async function fetchProfile(uid) {
+      try {
+        const { data, error } = await window.__blogSupabase
+          .from('profiles')
+          .select('*')
+          .eq('id', uid)
+          .single();
+        if (error) {
+          if (!error.message.includes('contains 0 rows')) {
+            console.error('获取 profile 出错:', error);
+          }
+          return null;
+        }
+        return data;
+      } catch (e) {
+        console.error('获取 profile 异常:', e);
+        return null;
+      }
+    }
+
+    // ========== 认证状态监听（已修复阻塞问题） ==========
     window.__blogSupabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[Blog] 认证事件:', event, session?.user?.email);
       currentUser = session?.user ?? null;
 
+      // 立即先更新导航（此时可能还没有 role，稍后补全）
       if (currentUser) {
-        const { data: profile, error } = await window.__blogSupabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-        if (error && !error.message.includes('contains 0 rows')) {
-          console.error('获取 profile 失败:', error);
-        }
-        userProfile = profile || null;
+        // 异步加载 profile，不阻塞
+        fetchProfile(currentUser.id).then(profile => {
+          userProfile = profile;
+          renderNav(); // 获取 profile 后刷新导航以显示“+ 新文章”按钮
+        });
       } else {
         userProfile = null;
       }
 
-      // 仅在首次完成认证初始化后渲染页面
+      // 首次初始化时直接渲染页面
       if (!appInitialized) {
         appInitialized = true;
-        renderApp();
+        renderNav();
+        await renderApp();
         setTimeout(() => {
           const route = getRoute();
           if (route.page === 'login') setupLoginListener();
@@ -118,8 +137,9 @@ const STORAGE_BUCKET = 'blog-files';
           if (route.page === 'adminNewPost') setupNewPost();
         }, 50);
       } else {
-        // 后续状态变化也重新渲染（登录、登出等）
-        renderApp();
+        // 后续状态变化（如登录/登出）也需要重新渲染页面
+        renderNav();
+        await renderApp();
         setTimeout(() => {
           const route = getRoute();
           if (route.page === 'login') setupLoginListener();
@@ -146,7 +166,6 @@ const STORAGE_BUCKET = 'blog-files';
 
     async function renderApp() {
       console.log('[Blog] 渲染页面...');
-      renderNav();
       const app = document.getElementById('app');
       const route = getRoute();
       try {
@@ -388,7 +407,7 @@ const STORAGE_BUCKET = 'blog-files';
 
     // 路由变化监听
     window.addEventListener('hashchange', () => {
-      if (!appInitialized) return; // 初始化未完成前忽略
+      if (!appInitialized) return;
       renderApp();
       setTimeout(() => {
         const route = getRoute();
