@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的博客</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #1f2937; }
+    a { color: #2563eb; text-decoration: none; } a:hover { text-decoration: underline; }
+    .container { max-width: 860px; margin: 0 auto; padding: 20px; }
+    nav { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 12px 0; margin-bottom: 30px; }
+    nav .container { display: flex; justify-content: space-between; align-items: center; }
+    nav h1 { font-size: 1.5rem; }
+    nav .nav-links a, nav .nav-links button { margin-left: 15px; background: none; border: none; cursor: pointer; font-size: 0.95rem; color: #4b5563; }
+    .post-card { background: #fff; border-radius: 8px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .post-card h2 { font-size: 1.25rem; margin-bottom: 4px; }
+    .post-card .meta { font-size: 0.85rem; color: #6b7280; }
+    .post-content { background: #fff; border-radius: 8px; padding: 30px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-bottom: 30px; }
+    .post-content h1 { font-size: 2rem; margin-bottom: 8px; }
+    .post-content .meta { color: #6b7280; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
+    .post-content pre { background: #f3f4f6; padding: 16px; border-radius: 6px; overflow-x: auto; }
+    .comments-section { margin-top: 40px; }
+    .comment { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .comment .author { font-weight: 600; }
+    .comment .date { font-size: 0.8rem; color: #9ca3af; margin-left: 8px; }
+    form input, form textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; margin-bottom: 12px; font-family: inherit; }
+    form textarea { min-height: 120px; }
+    .btn { padding: 8px 20px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; margin-right: 8px; }
+    .btn:hover { background: #1d4ed8; }
+    .btn-outline { background: transparent; border: 1px solid #2563eb; color: #2563eb; }
+    .btn-outline:hover { background: #eff6ff; }
+    .message { margin-top: 8px; font-size: 0.9rem; }
+    .loading { text-align: center; padding: 40px; color: #6b7280; }
+    .error-msg { color: #dc2626; }
+    .success-msg { color: #16a34a; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <h1><a href="#" style="color: inherit;">📝 我的博客</a></h1>
+      <div class="nav-links" id="navLinks"></div>
+    </div>
+  </nav>
+  <div class="container" id="app"><div class="loading">加载中...</div></div>
+
+  <script>
+    // ==================== 你的 Supabase 配置 ====================
+    const SUPABASE_URL = 'https://npjglzxaqacecijvhjjb.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_3ii6Dp-uKyvr9MS61U2F1g_lrx8oz3C';
+    const STORAGE_BUCKET = 'blog-files';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    marked.setOptions({
+      highlight: function(code, lang) {
+        if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
+        return hljs.highlightAuto(code).value;
+      },
+      breaks: true, gfm: true
+    });
+
+    let currentUser = null;
+    let userProfile = null;
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, c => map[c]);
+    }
+    function formatDate(d) { return new Date(d).toLocaleString('zh-CN', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' }); }
+    function getRoute() {
+      let hash = window.location.hash.slice(1);
+      if (!hash) return { page: 'home' };
+      const parts = hash.split('/').filter(Boolean);
+      if (parts[0]==='post' && parts[1]) return { page:'post', slug: parts[1] };
+      if (parts[0]==='login') return { page:'login' };
+      if (parts[0]==='register') return { page:'register' };
+      if (parts[0]==='admin' && parts[1]==='new') return { page:'adminNewPost' };
+      return { page:'home' };
+    }
+    function navigate(route) {
+      let hash = '#';
+      if (route.page==='post') hash += `/post/${route.slug}`;
+      else if (route.page==='login') hash += '/login';
+      else if (route.page==='register') hash += '/register';
+      else if (route.page==='adminNewPost') hash += '/admin/new';
+      window.location.hash = hash;
+    }
+    function showMessage(id, text, type='info') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      el.className = `message ${type==='error'?'error-msg':type==='success'?'success-msg':''}`;
+    }
+    function isAdmin() { return userProfile && userProfile.role === 'admin'; }
+
+    async function loadSession() {
+      const { data:{ session } } = await supabase.auth.getSession();
+      currentUser = session?.user ?? null;
+      if (currentUser) {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+        userProfile = profile;
+      } else userProfile = null;
+    }
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      currentUser = session?.user ?? null;
+      if (currentUser) {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+        userProfile = profile;
+      } else userProfile = null;
+      renderApp();
+    });
+
+    function renderNav() {
+      const nav = document.getElementById('navLinks');
+      let html = '<a href="#">首页</a>';
+      if (currentUser) {
+        if (isAdmin()) html += '<a href="#/admin/new">+ 新文章</a>';
+        html += `<span style="margin-left:15px;color:#4b5563;">👤 ${escapeHtml(currentUser.email)}</span>`;
+        html += '<button id="logoutBtn">登出</button>';
+      } else {
+        html += '<a href="#/login">登录</a> <a href="#/register">注册</a>';
+      }
+      nav.innerHTML = html;
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) logoutBtn.addEventListener('click', async (e) => { e.preventDefault(); await supabase.auth.signOut(); navigate({ page:'home' }); });
+    }
+
+    async function renderApp() {
+      renderNav();
+      const app = document.getElementById('app');
+      const route = getRoute();
+      try {
+        switch (route.page) {
+          case 'home': app.innerHTML = await renderHome(); break;
+          case 'post': app.innerHTML = await renderPost(route.slug); break;
+          case 'login': app.innerHTML = renderLogin(); break;
+          case 'register': app.innerHTML = renderRegister(); break;
+          case 'adminNewPost': if (!isAdmin()) { navigate({ page:'home' }); return; } app.innerHTML = renderNewPost(); break;
+          default: app.innerHTML = '<p>页面未找到</p>';
+        }
+      } catch (err) { console.error(err); app.innerHTML = `<p class="error-msg">出错了：${escapeHtml(err.message)}</p>`; }
+    }
+
+    async function renderHome() {
+      const { data: posts, error } = await supabase.from('posts').select('id,title,slug,created_at').order('created_at', { ascending: false });
+      if (error) throw error;
+      if (!posts || posts.length===0) return '<p>暂无文章。</p>';
+      return posts.map(p => `
+        <div class="post-card">
+          <h2><a href="#/post/${p.slug}">${escapeHtml(p.title)}</a></h2>
+          <div class="meta">${formatDate(p.created_at)}</div>
+        </div>`).join('');
+    }
+
+    async function renderPost(slug) {
+      const { data: post, error } = await supabase.from('posts').select('*').eq('slug', slug).single();
+      if (error || !post) return '<p class="error-msg">文章不存在。</p>';
+      let html = `
+        <div class="post-content">
+          <h1>${escapeHtml(post.title)}</h1>
+          <div class="meta">发布于 ${formatDate(post.created_at)}</div>
+          <div id="postBody">${marked.parse(post.content || '')}</div>
+        </div>
+        <div class="comments-section">
+          <h2>评论</h2>
+          <div id="commentsList">加载中...</div>`;
+      if (currentUser) {
+        html += `
+          <form id="commentForm" style="margin-top:20px;">
+            <textarea id="commentContent" placeholder="写下你的评论..." required></textarea>
+            <button type="submit" class="btn">发表评论</button>
+            <div id="commentMsg" class="message"></div>
+          </form>`;
+      } else html += '<p>请<a href="#/login">登录</a>后评论。</p>';
+      html += '</div>';
+      setTimeout(() => { loadComments(post.id); bindCommentForm(post.id); }, 0);
+      return html;
+    }
+
+    async function loadComments(postId) {
+      const { data: comments, error } = await supabase.from('comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
+      const list = document.getElementById('commentsList');
+      if (!list) return;
+      if (error || !comments.length) { list.innerHTML = '<p>暂无评论。</p>'; return; }
+      let html = '';
+      for (const c of comments) {
+        const { data: prof } = await supabase.from('profiles').select('username').eq('id', c.author_id).single();
+        html += `<div class="comment"><span class="author">${escapeHtml(prof?.username || '匿名')}</span><span class="date">${formatDate(c.created_at)}</span><p>${escapeHtml(c.content)}</p></div>`;
+      }
+      list.innerHTML = html;
+    }
+    function bindCommentForm(postId) {
+      const form = document.getElementById('commentForm');
+      if (!form) return;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const content = document.getElementById('commentContent').value.trim();
+        if (!content) return;
+        const { error } = await supabase.from('comments').insert({ post_id: postId, author_id: currentUser.id, content });
+        if (error) showMessage('commentMsg', '评论失败: '+error.message, 'error');
+        else { document.getElementById('commentContent').value = ''; showMessage('commentMsg', '评论成功!', 'success'); loadComments(postId); }
+      });
+    }
+
+    // ========== 登录页 ==========
+    function renderLogin() {
+      return `
+        <h2>登录</h2>
+        <form id="loginForm" style="max-width:400px;">
+          <input type="email" id="loginEmail" placeholder="邮箱" required>
+          <input type="password" id="loginPassword" placeholder="密码" required>
+          <button type="submit" class="btn">登录</button>
+          <span>没有账号？<a href="#/register">注册</a></span>
+          <div id="loginMsg" class="message"></div>
+        </form>`;
+    }
+    function setupLoginListener() {
+      const form = document.getElementById('loginForm');
+      if (!form) return;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          if (error.message.includes('Email not confirmed')) showMessage('loginMsg', '邮箱尚未验证，请检查邮箱并点击验证链接。', 'error');
+          else showMessage('loginMsg', '登录失败: ' + error.message, 'error');
+        } else navigate({ page: 'home' });
+      });
+    }
+
+    // ========== 注册页（含邮箱验证提示） ==========
+    function renderRegister() {
+      return `
+        <h2>注册</h2>
+        <div id="registerFormContainer">
+          <form id="registerForm" style="max-width:400px;">
+            <input type="email" id="regEmail" placeholder="邮箱" required>
+            <input type="password" id="regPassword" placeholder="密码 (至少6位)" required minlength="6">
+            <button type="submit" class="btn">注册</button>
+            <span>已有账号？<a href="#/login">登录</a></span>
+            <div id="regMsg" class="message"></div>
+          </form>
+        </div>
+        <div id="verifyPrompt" style="display:none; margin-top:20px; padding:16px; background:#f0fdf4; border-radius:8px; text-align:center;">
+          <p style="margin:0;">✅ 注册成功！请前往您的邮箱查收验证邮件，<br>点击邮件中的链接完成验证。</p>
+          <button id="resendVerifyBtn" class="btn btn-outline" style="margin-top:12px;">重新发送验证邮件</button>
+          <div id="resendMsg" class="message"></div>
+        </div>`;
+    }
+    function setupRegisterListener() {
+      const form = document.getElementById('registerForm');
+      if (!form) return;
+      const emailInput = document.getElementById('regEmail');
+      const passwordInput = document.getElementById('regPassword');
+      const resendBtn = document.getElementById('resendVerifyBtn');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = emailInput.value;
+        const password = passwordInput.value;
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          showMessage('regMsg', '注册失败: ' + error.message, 'error');
+        } else {
+          document.getElementById('registerFormContainer').style.display = 'none';
+          document.getElementById('verifyPrompt').style.display = 'block';
+          if (resendBtn) resendBtn.dataset.email = email;
+        }
+      });
+
+      if (resendBtn) {
+        resendBtn.addEventListener('click', async () => {
+          const email = resendBtn.dataset.email;
+          if (!email) return;
+          const { error } = await supabase.auth.resend({ type: 'signup', email });
+          if (error) showMessage('resendMsg', '发送失败: ' + error.message, 'error');
+          else showMessage('resendMsg', '验证邮件已重新发送，请检查邮箱。', 'success');
+        });
+      }
+    }
+
+    // ========== 管理员发布页 ==========
+    function renderNewPost() {
+      return `
+        <h2>发布新文章</h2>
+        <form id="newPostForm">
+          <input type="text" id="postTitle" placeholder="文章标题" required>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input type="text" id="postSlug" placeholder="URL标识 (英文+短横线)" required style="flex:2;">
+            <button type="button" id="genSlugBtn" class="btn btn-outline">自动生成</button>
+          </div>
+          <textarea id="postContent" placeholder="Markdown 内容" rows="12"></textarea>
+          <div style="margin-bottom:12px;">
+            <label>上传附件</label>
+            <input type="file" id="fileInput" multiple>
+            <button type="button" id="uploadFileBtn" class="btn btn-outline">上传选中文件</button>
+            <div id="uploadStatus" class="message"></div>
+            <ul id="uploadedFilesList" style="margin-top:8px; list-style:none;"></ul>
+          </div>
+          <button type="submit" class="btn">发布文章</button>
+          <div id="newPostMsg" class="message"></div>
+        </form>`;
+    }
+    function setupNewPost() {
+      const slugInput = document.getElementById('postSlug');
+      const titleInput = document.getElementById('postTitle');
+      const contentArea = document.getElementById('postContent');
+      let uploadedUrls = [];
+
+      document.getElementById('genSlugBtn').addEventListener('click', () => {
+        let slug = titleInput.value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        if (slug) slugInput.value = slug;
+      });
+
+      document.getElementById('uploadFileBtn').addEventListener('click', async () => {
+        const files = document.getElementById('fileInput').files;
+        if (!files.length) { showMessage('uploadStatus', '请选择文件', 'error'); return; }
+        uploadedUrls = [];
+        for (const file of files) {
+          const filePath = `${Date.now()}_${file.name}`;
+          const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(filePath, file);
+          if (error) { showMessage('uploadStatus', '上传失败: '+error.message, 'error'); return; }
+          const { data: { publicUrl } } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path);
+          uploadedUrls.push({ name: file.name, url: publicUrl });
+        }
+        document.getElementById('uploadedFilesList').innerHTML = uploadedUrls.map(f =>
+          `<li>📎 <a href="${f.url}" target="_blank">${escapeHtml(f.name)}</a> <button type="button" class="insertLinkBtn" data-url="${f.url}" data-name="${escapeHtml(f.name)}">插入到文章</button></li>`).join('');
+        showMessage('uploadStatus', `成功上传 ${uploadedUrls.length} 个文件`, 'success');
+        document.querySelectorAll('.insertLinkBtn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            contentArea.value += `\n[${btn.dataset.name}](${btn.dataset.url})`;
+          });
+        });
+        document.getElementById('fileInput').value = '';
+      });
+
+      document.getElementById('newPostForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = titleInput.value.trim();
+        const slug = slugInput.value.trim();
+        let content = contentArea.value;
+        if (!title || !slug) { showMessage('newPostMsg', '标题和URL标识不能为空', 'error'); return; }
+        if (uploadedUrls.length && !content.includes('## 附件')) {
+          content += '\n\n## 附件\n' + uploadedUrls.map(f => `- [${f.name}](${f.url})`).join('\n');
+        }
+        const { error } = await supabase.from('posts').insert({ title, slug, content, author_id: currentUser.id });
+        if (error) { showMessage('newPostMsg', '发布失败: '+error.message, 'error'); return; }
+        showMessage('newPostMsg', '发布成功！', 'success');
+        const { data: newPost } = await supabase.from('posts').select('id').eq('slug', slug).single();
+        if (newPost && uploadedUrls.length) {
+          await supabase.from('files').insert(uploadedUrls.map(f => ({ post_id: newPost.id, file_name: f.name, file_path: f.url })));
+        }
+        setTimeout(() => navigate({ page: 'post', slug }), 1000);
+      });
+    }
+
+    // 路由绑定
+    window.addEventListener('hashchange', () => {
+      renderApp();
+      setTimeout(() => {
+        const route = getRoute();
+        if (route.page === 'login') setupLoginListener();
+        if (route.page === 'register') setupRegisterListener();
+        if (route.page === 'adminNewPost') setupNewPost();
+      }, 50);
+    });
+
+    (async () => {
+      await loadSession();
+      renderApp();
+      setTimeout(() => {
+        const route = getRoute();
+        if (route.page === 'login') setupLoginListener();
+        if (route.page === 'register') setupRegisterListener();
+        if (route.page === 'adminNewPost') setupNewPost();
+      }, 50);
+    })();
+  </script>
+</body>
+</html>
