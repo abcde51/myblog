@@ -9,73 +9,66 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #1f2937; }
-    a { color: #2563eb; text-decoration: none; } a:hover { text-decoration: underline; }
-    .container { max-width: 860px; margin: 0 auto; padding: 20px; }
-    nav { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 12px 0; margin-bottom: 30px; }
-    nav .container { display: flex; justify-content: space-between; align-items: center; }
-    nav h1 { font-size: 1.5rem; }
-    nav .nav-links a, nav .nav-links button { margin-left: 15px; background: none; border: none; cursor: pointer; font-size: 0.95rem; color: #4b5563; }
-    .post-card { background: #fff; border-radius: 8px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-    .post-card h2 { font-size: 1.25rem; margin-bottom: 4px; }
-    .post-card .meta { font-size: 0.85rem; color: #6b7280; }
-    .post-content { background: #fff; border-radius: 8px; padding: 30px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-bottom: 30px; }
-    .post-content h1 { font-size: 2rem; margin-bottom: 8px; }
-    .post-content .meta { color: #6b7280; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
-    .post-content pre { background: #f3f4f6; padding: 16px; border-radius: 6px; overflow-x: auto; }
-    .comments-section { margin-top: 40px; }
-    .comment { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .comment .author { font-weight: 600; }
-    .comment .date { font-size: 0.8rem; color: #9ca3af; margin-left: 8px; }
-    form input, form textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; margin-bottom: 12px; font-family: inherit; }
-    form textarea { min-height: 120px; }
-    .btn { padding: 8px 20px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; margin-right: 8px; }
-    .btn:hover { background: #1d4ed8; }
-    .btn-outline { background: transparent; border: 1px solid #2563eb; color: #2563eb; }
-    .btn-outline:hover { background: #eff6ff; }
-    .message { margin-top: 8px; font-size: 0.9rem; }
-    .loading { text-align: center; padding: 40px; color: #6b7280; }
-    .error-msg { color: #dc2626; }
-    .success-msg { color: #16a34a; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#f5f5f5; color:#1f2937; }
+    a { color:#2563eb; text-decoration:none; } a:hover { text-decoration:underline; }
+    .container { max-width:860px; margin:0 auto; padding:20px; }
+    nav { background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.1); padding:12px 0; margin-bottom:30px; }
+    nav .container { display:flex; justify-content:space-between; align-items:center; }
+    nav h1 { font-size:1.5rem; }
+    .post-card { background:#fff; border-radius:8px; padding:20px 24px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+    .post-card h2 { font-size:1.25rem; margin-bottom:4px; }
+    .post-card .meta { font-size:0.85rem; color:#6b7280; }
+    .post-content { background:#fff; border-radius:8px; padding:30px 24px; box-shadow:0 1px 4px rgba(0,0,0,0.05); margin-bottom:30px; }
+    .comments-section { margin-top:40px; }
+    .comment { background:#fff; border-radius:8px; padding:16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+    .comment .author { font-weight:600; }
+    .comment .date { font-size:0.8rem; color:#9ca3af; margin-left:8px; }
+    input, textarea { width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.95rem; margin-bottom:12px; font-family:inherit; }
+    textarea { min-height:120px; }
+    .btn { padding:8px 20px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:0.95rem; cursor:pointer; margin-right:8px; }
+    .btn:hover { background:#1d4ed8; }
+    .btn-outline { background:transparent; border:1px solid #2563eb; color:#2563eb; }
+    .btn-outline:hover { background:#eff6ff; }
+    .message { margin-top:8px; font-size:0.9rem; }
+    .loading { text-align:center; padding:40px; color:#6b7280; }
+    .error-msg { color:#dc2626; }
+    .success-msg { color:#16a34a; }
   </style>
 </head>
 <body>
-  <nav>
-    <div class="container">
-      <h1><a href="#" style="color: inherit;">📝 我的博客</a></h1>
-      <div class="nav-links" id="navLinks"></div>
-    </div>
-  </nav>
+  <nav><div class="container"><h1><a href="#" style="color:inherit;">📝 我的博客</a></h1><div class="nav-links" id="navLinks"></div></div></nav>
   <div class="container" id="app"><div class="loading">加载中...</div></div>
 
   <script>
-    // ==================== 你的 Supabase 配置 ====================
+    // ================= 配置 =================
     const SUPABASE_URL = 'https://npjglzxaqacecijvhjjb.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_3ii6Dp-uKyvr9MS61U2F1g_lrx8oz3C';
     const STORAGE_BUCKET = 'blog-files';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // 使用 window 对象避免重复声明
+    if (!window.__blogSupabase) {
+      window.__blogSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    const supabase = window.__blogSupabase;
 
-    marked.setOptions({
-      highlight: function(code, lang) {
-        if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
-        return hljs.highlightAuto(code).value;
-      },
-      breaks: true, gfm: true
-    });
+    // 设置 marked
+    if (window.marked) {
+      marked.setOptions({ breaks: true, gfm: true });
+    }
 
     let currentUser = null;
     let userProfile = null;
 
     function escapeHtml(text) {
-      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-      return text.replace(/[&<>"']/g, c => map[c]);
+      const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' };
+      return (text || '').replace(/[&<>"']/g, c => map[c]);
     }
     function formatDate(d) { return new Date(d).toLocaleString('zh-CN', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' }); }
+
     function getRoute() {
       let hash = window.location.hash.slice(1);
-      if (!hash) return { page: 'home' };
+      if (!hash) return { page:'home' };
       const parts = hash.split('/').filter(Boolean);
       if (parts[0]==='post' && parts[1]) return { page:'post', slug: parts[1] };
       if (parts[0]==='login') return { page:'login' };
@@ -100,13 +93,17 @@
     function isAdmin() { return userProfile && userProfile.role === 'admin'; }
 
     async function loadSession() {
-      const { data:{ session } } = await supabase.auth.getSession();
+      const { data:{ session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
       currentUser = session?.user ?? null;
       if (currentUser) {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-        userProfile = profile;
-      } else userProfile = null;
+        userProfile = profile || null;
+      } else {
+        userProfile = null;
+      }
     }
+
     supabase.auth.onAuthStateChange(async (event, session) => {
       currentUser = session?.user ?? null;
       if (currentUser) {
@@ -144,7 +141,10 @@
           case 'adminNewPost': if (!isAdmin()) { navigate({ page:'home' }); return; } app.innerHTML = renderNewPost(); break;
           default: app.innerHTML = '<p>页面未找到</p>';
         }
-      } catch (err) { console.error(err); app.innerHTML = `<p class="error-msg">出错了：${escapeHtml(err.message)}</p>`; }
+      } catch (err) {
+        console.error(err);
+        app.innerHTML = `<p class="error-msg">出错了：${escapeHtml(err.message)}</p>`;
+      }
     }
 
     async function renderHome() {
@@ -195,6 +195,7 @@
       }
       list.innerHTML = html;
     }
+
     function bindCommentForm(postId) {
       const form = document.getElementById('commentForm');
       if (!form) return;
@@ -208,7 +209,7 @@
       });
     }
 
-    // ========== 登录页 ==========
+    // 登录页
     function renderLogin() {
       return `
         <h2>登录</h2>
@@ -229,13 +230,13 @@
         const password = document.getElementById('loginPassword').value;
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          if (error.message.includes('Email not confirmed')) showMessage('loginMsg', '邮箱尚未验证，请检查邮箱并点击验证链接。', 'error');
+          if (error.message.includes('Email not confirmed')) showMessage('loginMsg', '邮箱尚未验证，请检查邮箱。', 'error');
           else showMessage('loginMsg', '登录失败: ' + error.message, 'error');
-        } else navigate({ page: 'home' });
+        } else navigate({ page:'home' });
       });
     }
 
-    // ========== 注册页（含邮箱验证提示） ==========
+    // 注册页（含邮箱验证提示）
     function renderRegister() {
       return `
         <h2>注册</h2>
@@ -249,7 +250,7 @@
           </form>
         </div>
         <div id="verifyPrompt" style="display:none; margin-top:20px; padding:16px; background:#f0fdf4; border-radius:8px; text-align:center;">
-          <p style="margin:0;">✅ 注册成功！请前往您的邮箱查收验证邮件，<br>点击邮件中的链接完成验证。</p>
+          <p>✅ 注册成功！请前往您的邮箱查收验证邮件，<br>点击邮件中的链接完成验证。</p>
           <button id="resendVerifyBtn" class="btn btn-outline" style="margin-top:12px;">重新发送验证邮件</button>
           <div id="resendMsg" class="message"></div>
         </div>`;
@@ -286,7 +287,7 @@
       }
     }
 
-    // ========== 管理员发布页 ==========
+    // 管理员发布页
     function renderNewPost() {
       return `
         <h2>发布新文章</h2>
@@ -334,9 +335,7 @@
           `<li>📎 <a href="${f.url}" target="_blank">${escapeHtml(f.name)}</a> <button type="button" class="insertLinkBtn" data-url="${f.url}" data-name="${escapeHtml(f.name)}">插入到文章</button></li>`).join('');
         showMessage('uploadStatus', `成功上传 ${uploadedUrls.length} 个文件`, 'success');
         document.querySelectorAll('.insertLinkBtn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            contentArea.value += `\n[${btn.dataset.name}](${btn.dataset.url})`;
-          });
+          btn.addEventListener('click', () => { contentArea.value += `\n[${btn.dataset.name}](${btn.dataset.url})`; });
         });
         document.getElementById('fileInput').value = '';
       });
@@ -361,7 +360,7 @@
       });
     }
 
-    // 路由绑定
+    // 路由与事件绑定
     window.addEventListener('hashchange', () => {
       renderApp();
       setTimeout(() => {
@@ -372,6 +371,7 @@
       }, 50);
     });
 
+    // 首次加载
     (async () => {
       await loadSession();
       renderApp();
